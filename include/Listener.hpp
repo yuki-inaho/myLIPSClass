@@ -8,6 +8,7 @@
 #include <OpenNI.h>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/core.hpp>
+#include <armadillo>
 
 using namespace cv;
 using namespace std;
@@ -230,6 +231,17 @@ public:
         return(_pc);
     }
 
+
+    arma::mat getXYMat()
+    {
+        std::lock_guard<std::mutex> lock (flagMutex);
+        return xy_mat;
+    }
+
+    vector<int> x_vec, y_vec;    
+    arma::mat xy_mat;
+    
+
 private:
     pcl::PointCloud<pcl::PointXYZ>::Ptr 
     niComputeCloud( const cv::Mat depthMap, const VideoStream &depthStream)
@@ -237,6 +249,8 @@ private:
 
         const DepthPixel* pDepthArray = (const DepthPixel*)depthMap.data;
         cv::Mat PointIndexMat_tmp = Mat::zeros(depthMap.rows * depthMap.cols, 3, CV_16UC1);
+        x_vec.clear();
+        y_vec.clear();
 
         pcl::PointCloud<pcl::PointXYZ>::Ptr _pc (new pcl::PointCloud<pcl::PointXYZ>);
         int count = 0;
@@ -258,11 +272,20 @@ private:
                     PointIndexMat_tmp.at<unsigned short>(count,0) = x;
                     PointIndexMat_tmp.at<unsigned short>(count,1) = y;
                     PointIndexMat_tmp.at<unsigned short>(count,2) = 0;
+                    x_vec.push_back(x);
+                    y_vec.push_back(y);
+
                     count ++;
                 }else{
                     *pDepthArray++;
                 }
             }
+        }
+
+        xy_mat = arma::zeros(y_vec.size(), 2);
+        for(int i=0;i<x_vec.size();i++){
+            xy_mat(i,0) = x_vec[i];
+            xy_mat(i,1) = y_vec[i];
         }
 
         PointIndexMat = Mat::zeros(count, 3, CV_16UC1);

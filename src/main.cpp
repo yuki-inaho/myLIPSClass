@@ -109,8 +109,6 @@ Float2CharSurfaceNormal(cv::Mat sn_img)
     return sn_img_char;
 }
 
-
-
 void
 drawContours(cv::Mat &img, const cv::Mat &mask)
 {
@@ -305,107 +303,6 @@ RefineInpaintingArea(cv::Mat color, cv::Mat depthImage, vector<vector<int>> inpa
     return depthImage;
 }
 
-float
-frobenius_norm(cv::Mat X)
-{
-    int nrow = X.rows;
-    int ncol = X.cols;
-    float norm = 0;
-    float _norm;
-
-    for(int y=0;y<nrow;y++){
-        for(int x=0;x<ncol;x++){
-            _norm = X.at<float>(y,x);
-            norm += _norm*_norm;
-        }
-    }
-    norm = std::sqrt(norm);
-    return norm;
-}
-
-cv::Mat 
-So(cv::Mat X, float tau, int nrow, int ncol)
-{
-    int ndiag = nrow;
-    cv::Mat r= cv::Mat::zeros(nrow,ncol, CV_32FC1);   
-
-    for(int i=0;i<ndiag;i++){
-        float sign;
-        if(X.at<float>(0,i) >0){
-            sign = 1;
-        }else{
-            sign = -1;
-        }
-
-        if(std::abs(X.at<float>(0,i)) > tau){
-            r.at<float>(i,i) = sign * std::abs(X.at<float>(0,i));
-        }else{
-            r.at<float>(i,i) = 0;
-        }
-    }
-    return r;
-}
-
-cv::Mat 
-Do(cv::Mat X, float tau)
-{
-    int nrow = X.rows;
-    int ncol = X.cols;
-    cv::Mat w, u, vt;
-    cv::SVD::compute(X, w, u, vt, cv::SVD::FULL_UV);
-//    cout << "test" << endl;
-    cv::Mat _So = So(w,tau,nrow,ncol);
-    cv::Mat r= u*_So*vt;
-    return r;
-}
-
-cv::Mat 
-RobustPCA(cv::Mat X, float lambda, float mu, float tol, int max_iter)
-{
-    cv::Mat L, S, Y, _Y, Z;
-    int nrow = X.rows;
-    int ncol = X.cols;
-    L = cv::Mat::zeros(nrow,ncol, CV_32FC1);    
-    cv::Mat _X;
-    X.convertTo(_X, CV_32FC1);
-
-    float normX = frobenius_norm(_X);
-
-    /*
-    % default arguments
-    if nargin < 2
-        lambda = 1 / sqrt(max(M,N));
-    end
-    if nargin < 3
-        mu = 10*lambda;
-    end
-    if nargin < 4
-        tol = 1e-6;
-    end
-    if nargin < 5
-        max_iter = 1000;
-    end
-    */
-    
-    L = cv::Mat::zeros(nrow,ncol, CV_32FC1);
-    S = cv::Mat::zeros(nrow,ncol, CV_32FC1);
-    _Y = cv::Mat::zeros(nrow,ncol, CV_32FC1);
-    Z = cv::Mat::zeros(nrow,ncol, CV_32FC1);    
-    float err;
-
-    for(int iter=0;iter<max_iter;iter++){
-        cv::Mat temp = _X - S + (1/mu)*_Y;
-        L = Do(temp, 1/mu);
-        S = So(_X - L + (1/mu)*_Y, lambda/mu,nrow, ncol);
-        Z = _X - L - S;
-        _Y = _Y + mu*Z;
-        err = frobenius_norm(Z)/normX;
-        cout << err << endl;
-    }
-    Z.convertTo(Y, CV_8UC1);
-    return Y;
-}
-
 int main(int argc, const char * argv[])
 {
     boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = simpleVis ();
@@ -448,145 +345,15 @@ int main(int argc, const char * argv[])
             cv::Mat IRImageClone = IRImage.clone();                
             cv::flip(IRImageClone, IRImageClone, 1);
 
+/*
             std::chrono::steady_clock::time_point start_solver = std::chrono::steady_clock::now();
             IRImageClone = RobustPCA(IRImageClone, 0.1, 0.001, 1e-5, 100);
       	    std::chrono::steady_clock::time_point end_solver = std::chrono::steady_clock::now();
       	    std::cout << "calc time: " << std::chrono::duration_cast<std::chrono::milliseconds>(end_solver - start_solver).count() << "ms" << std::endl;
-
-//            cv::ximgproc::amFilter(colorImageClone, IRImageClone, IRImageClone, 5, 0.2, true);
-            
-/*
-            cv::Mat depthImageRaw = depthImage.clone();
-            vector<vector<int>> inpainting_index;
-            cv::Mat depthImage_smoothed = JointBilateralFilterInpaintingOMP(colorImageClone, depthImageClone, inpainting_index, 3, 2.0, 3.0, 100.0);
-            //cout << inpainting_index.size() << endl;
-            for(int i=0;i<2;i++){
-                depthImage_smoothed = JointBilateralFilterInpaintingOMP(colorImage, depthImage_smoothed, inpainting_index, 3, 2.0, 3.0, 100.0);
-            }
-            depthImageClone = depthImage_smoothed;
-            */
-
-/*            
-            auto  slic = cv::ximgproc::createSuperpixelSLIC(colorImageClone, cv::ximgproc::SLIC, 3);
-            slic->iterate(3);
-            slic->enforceLabelConnectivity(3);
-            cv::Mat label;
-            slic->getLabels(label);
-            cout << label.type() << endl;
-            vector<vector<vector<int>>> label_wised_index;
-            label_wised_index = label2ind(label);
-            Mat depthImageSmoothed = smoothingOnLabel(depthImageClone , label_wised_index);
-            Mat mask = Mat::zeros(depthImageSmoothed.rows, depthImageSmoothed.cols, CV_8UC1);
 */
 
-/*
-            for(int y = 0; y<depthImageSmoothed.rows; y++){
-                for(int x = 0; x<depthImageSmoothed.cols; x++){
-                    cout << depthImageSmoothed.at<unsigned short>(y,x) << endl;
-                }
-            }
-            */
-//            ximgproc::amFilter(depthImageClone, depthImageSmoothed, depthImageSmoothed, 5, 0.00001, false);
-            /*
-            for(int y = 0; y<mask.rows; y++){
-                for(int x = 0; x<mask.cols; x++){
-                   if(mask.at<unsigned char>(y,x)>0){
-                       depthImage.at<unsigned short>(y,x)=0;
-                   }
-                }
-            }
-            */
-//            pc_dat = listener.getPointCloud();
             pc_dat = listener._niComputeCloud(depthImageClone);
             point_index_mat = listener.getPointIndexMat();
-
-//            Mat sn_img_float = generateSurfaceNormalImg(pc_dat, point_index_mat, depthImage.cols, depthImage.rows);
-//            Mat sn_img;
-//            sn_img = Float2CharSurfaceNormal(sn_img_float);
-/*            
-*/            
-
-            //sn_img_float.convertTo(sn_img, CV_8UC3, 255.0);
-            //sn_img = normalizePseudoSurfaceNormal(sn_img);
-
-            //depthImage_test = dfilter.process();
-            //Mat dc = DepthToColorMat(depthImageClone);
-
-/*
-            Mat mask = Mat::zeros(sn_img.rows, sn_img.cols, CV_8UC1);
-            for(int y = 0; y<sn_img.rows; y++){
-                for(int x = 0; x<sn_img.cols; x++){
-                   if(sn_img.at<cv::Vec3b>(y,x)[0]==0){
-                       mask.at<unsigned char>(y,x)=255;
-                   }
-                }
-            }
-            cv::inpaint(sn_img, mask, sn_img, 3, INPAINT_NS);
-            */
-//            ximgproc::amFilter(colorImageClone, sn_img, sn_img, 5, 0.001, true);
-//            ximgproc::amFilter(sn_img, sn_img, sn_img, 16, 0.2, true);
-//            ximgproc::amFilter(colorImageClone, sn_img, sn_img, 5, 0.05, true);
-//            sn_img = normalizePseudoSurfaceNormal(sn_img);            
-//            ximgproc::guidedFilter(sn_img, sn_img, sn_img, 5, 0.01);
-            //ximgproc::jointBilateralFilter(colorImageClone, sn_img, sn_img, 3, 1, 1);
-//            sn_img = normalizePseudoSurfaceNormal(sn_img);
-            
-            //depthImage = ColorToDepthMat(dc);
-//            pc_dat = listener._niComputeCloud(depthImage);
-//                pc_tmp = removeNan(pc_dat);
-//                cout << pc_tmp->points.size() << endl;
-//                pc_dat = MyMLS(pc_tmp);
-
-/*
-            if(dfilter.get_init_flag()){
-                //depthImage_test = dfilter.process();
-                Mat depthImageClone = depthImage.clone();
-                Mat colorImageClone = colorImage.clone();                
-                Mat dc = DepthToColorMat(depthImageClone);
-                ximgproc::amFilter(colorImageClone, sn_img, sn_img, 16, 0.2, true);
-                //ximgproc::jointBilateralFilter(colorImageClone, sn_img, sn_img, 16, 1, 1);
-                depthImage = ColorToDepthMat(dc);
-                pc_dat = listener._niComputeCloud(depthImage);
-//                pc_tmp = removeNan(pc_dat);
-//                cout << pc_tmp->points.size() << endl;
-//                pc_dat = MyMLS(pc_tmp);
-            }
-*/
-
-            /*
-            if(queue_color.size() == queue_color.queue_size){
-                cout << queue_color[0] << endl;
-            }
-            */
-
-/*           
-            cv::Mat depthImage_color = cv::Mat::zeros( depthImage.rows,
-                                        depthImage.cols,
-                                        CV_8UC3);
-
-            for(int y=0;y< depthImage.rows;y++){
-                for(int x=0;x< depthImage.cols;x++){
-                    if(depthImage.at<unsigned short>(y,x)*255.0 == 255 || depthImage.at<unsigned short>(y,x)*255.0 == 0.0){
-                        depthImage_color.at<Vec3b>(y,x)[0] = (unsigned char)(depthImage.at<unsigned short>(y,x)*255);
-                        depthImage_color.at<Vec3b>(y,x)[1] = 0;
-                        depthImage_color.at<Vec3b>(y,x)[2] = 0;
-                    }else{
-                        depthImage_color.at<Vec3b>(y,x)[0] = depthImage.at<uchar>(y,x);
-                        depthImage_color.at<Vec3b>(y,x)[1] = 255;
-                        depthImage_color.at<Vec3b>(y,x)[2] = 255;
-                    }
-                }
-            }
-
-            cvtColor(depthImage_color, depthImage_color, COLOR_HSV2BGR_FULL);
-*/
-
-/*
-            pcl::VoxelGrid<pcl::PointXYZ> sor;
-            sor.setInputCloud (pc_dat);
-            sor.setLeafSize (0.001f, 0.001f, 0.001f);
-            sor.filter (*pc_dat);
-*/
             auto f_update = viewer->updatePointCloud(pc_dat, "sample cloud");
             if (!f_update){
                 viewer->addPointCloud<pcl::PointXYZ> (pc_dat, "sample cloud");
@@ -604,33 +371,13 @@ int main(int argc, const char * argv[])
             depthImageClone.convertTo( depthImage8, CV_8U, 255.0 / 4096.0 );
             cv::applyColorMap(depthImage8, depthImage_color, COLORMAP_JET);    
 
-/*
-            cv::Mat depthImageRaw_color = cv::Mat::zeros( depthImage.rows,
-                                        depthImage.cols,
-                                        CV_8UC3);
-*/
-
-//            depthImageRaw.convertTo( depthImage8, CV_8U, 255.0 / 4096 );
-//            cv::applyColorMap(depthImage8, depthImageRaw_color, COLORMAP_JET);    
-
-
-            //cv::cvtColor(depthImage8, depthImage_color, COLOR_HSV2BGR_FULL);
-
             cv::imshow("gtest", depthImage_color);
             cv::imshow("ir", IRImageClone);
-//            cv::imshow("sn", sn_img);
-            /*
-            if(colorImage_test.rows >0){
-                cv::imshow("ctest", colorImage_test);
-            }
-            */
 
             if ( key == 's' ) {
                 cv::imwrite("../img/colorImage.png", colorImageClone);
                 cv::imwrite("../img/depthImage.png", depthImage_color);
                 cv::imwrite("../img/irImage.png", IRImageClone);
-//                cv::imwrite("../img/depthImageRaw.png", depthImageRaw_color);                
-
             }
 
             if ( key == 'q' ) {
